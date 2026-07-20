@@ -4,7 +4,7 @@ from PIL import Image
 import os
 
 
-def load_image(path, downsample=2):
+def load_image(path, downsample=4):
     img = Image.open(path).convert("L")
     w, h = img.size
     img = img.resize((w // downsample, h // downsample))
@@ -28,8 +28,13 @@ def zero_center_pixels(F_shifted, radius=5):
 def predictor(image, radius=5):
     F = compute_2d_fft(image)
     F_filtered = zero_center_pixels(F, radius=radius)
-    energy = np.mean(np.abs(F_filtered)**2)
-    return energy
+    return np.mean(np.abs(F_filtered)**2)
+
+
+def get_image_files(data_dir, cat):
+    cat_dir = os.path.join(data_dir, cat)
+    exts = (".png", ".jpg", ".jpeg", ".bmp")
+    return sorted([f for f in os.listdir(cat_dir) if f.lower().endswith(exts)])
 
 
 def compute_threshold(images, labels, radius=5):
@@ -58,23 +63,19 @@ def compute_accuracy(images, labels, n, threshold, radius=5):
 
 def main():
     base_dir = os.path.dirname(__file__)
-    data_dir = os.path.join(base_dir, "data")
-    output_dir = os.path.join(os.path.dirname(base_dir), "figures")
+    project_dir = os.path.dirname(base_dir)
+    data_dir = os.path.join(project_dir, "dataset")
+    output_dir = os.path.join(project_dir, "figures")
 
     print("=== Part 1, Step 3: Noise Robustness Analysis ===\n")
 
-    threaded_dir = os.path.join(data_dir, "threaded")
-    unthreaded_dir = os.path.join(data_dir, "unthreaded")
-    t_files = sorted([f for f in os.listdir(threaded_dir) if f.endswith(".png")])
-    u_files = sorted([f for f in os.listdir(unthreaded_dir) if f.endswith(".png")])
-
     all_images = []
     all_labels = []
-    for f in t_files:
-        all_images.append(load_image(os.path.join(threaded_dir, f)))
+    for f in get_image_files(data_dir, "threaded"):
+        all_images.append(load_image(os.path.join(data_dir, "threaded", f)))
         all_labels.append(1)
-    for f in u_files:
-        all_images.append(load_image(os.path.join(unthreaded_dir, f)))
+    for f in get_image_files(data_dir, "threadless"):
+        all_images.append(load_image(os.path.join(data_dir, "threadless", f)))
         all_labels.append(0)
 
     threshold = compute_threshold(all_images, all_labels)
@@ -106,7 +107,7 @@ def main():
     print("\n  Saved accuracy_vs_noise.png")
 
     fig, axes = plt.subplots(2, 5, figsize=(20, 8))
-    sample_indices = [0, 10]
+    sample_indices = [0, len(get_image_files(data_dir, "threaded"))]
     sample_images = [all_images[i] for i in sample_indices]
     sample_labels = ["Threaded", "Unthreaded"]
     noise_examples = [0, 0.1, 1.0, 5.0, 50.0]

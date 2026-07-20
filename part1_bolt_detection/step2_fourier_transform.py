@@ -4,7 +4,7 @@ from PIL import Image
 import os
 
 
-def load_image(path, downsample=2):
+def load_image(path, downsample=4):
     img = Image.open(path).convert("L")
     w, h = img.size
     img = img.resize((w // downsample, h // downsample))
@@ -38,42 +38,41 @@ def reconstruct_image(F_filtered):
     return np.abs(img_recon)
 
 
-def visualize_fft_comparison(threaded_images, unthreaded_images, output_dir, radius=5):
-    fig, axes = plt.subplots(3, 2, figsize=(12, 15))
-    for idx, (t_img, u_img) in enumerate(zip(threaded_images, unthreaded_images)):
-        F_t, mag_t = compute_2d_fft(t_img)
-        F_u, mag_u = compute_2d_fft(u_img)
+def visualize_fft_comparison(t_img, u_img, output_dir, radius=5):
+    F_t, mag_t = compute_2d_fft(t_img)
+    F_u, mag_u = compute_2d_fft(u_img)
 
-        axes[0, 0].imshow(t_img, cmap="gray")
-        axes[0, 0].set_title("Threaded Bolt")
-        axes[0, 0].axis("off")
+    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
 
-        axes[0, 1].imshow(u_img, cmap="gray")
-        axes[0, 1].set_title("Unthreaded Bolt")
-        axes[0, 1].axis("off")
+    axes[0, 0].imshow(t_img, cmap="gray")
+    axes[0, 0].set_title("Threaded Bolt")
+    axes[0, 0].axis("off")
 
-        axes[1, 0].imshow(log_magnitude(mag_t), cmap="hot")
-        axes[1, 0].set_title("FFT Magnitude (Log) - Threaded")
-        axes[1, 0].axis("off")
+    axes[0, 1].imshow(log_magnitude(mag_t), cmap="hot")
+    axes[0, 1].set_title("FFT Magnitude (Log) - Threaded")
+    axes[0, 1].axis("off")
 
-        axes[1, 1].imshow(log_magnitude(mag_u), cmap="hot")
-        axes[1, 1].set_title("FFT Magnitude (Log) - Unthreaded")
-        axes[1, 1].axis("off")
+    F_t_filtered = zero_center_pixels(F_t, radius=radius)
+    recon_t = reconstruct_image(F_t_filtered)
+    axes[0, 2].imshow(recon_t, cmap="gray")
+    axes[0, 2].set_title(f"Reconstructed (center zeroed, r={radius})")
+    axes[0, 2].axis("off")
 
-        F_t_filtered = zero_center_pixels(F_t, radius=radius)
-        F_u_filtered = zero_center_pixels(F_u, radius=radius)
-        recon_t = reconstruct_image(F_t_filtered)
-        recon_u = reconstruct_image(F_u_filtered)
+    axes[1, 0].imshow(u_img, cmap="gray")
+    axes[1, 0].set_title("Unthreaded Bolt")
+    axes[1, 0].axis("off")
 
-        axes[2, 0].imshow(recon_t, cmap="gray")
-        axes[2, 0].set_title(f"Reconstructed (center zeroed, r={radius}) - Threaded")
-        axes[2, 0].axis("off")
+    axes[1, 1].imshow(log_magnitude(mag_u), cmap="hot")
+    axes[1, 1].set_title("FFT Magnitude (Log) - Unthreaded")
+    axes[1, 1].axis("off")
 
-        axes[2, 1].imshow(recon_u, cmap="gray")
-        axes[2, 1].set_title(f"Reconstructed (center zeroed, r={radius}) - Unthreaded")
-        axes[2, 1].axis("off")
-        break
+    F_u_filtered = zero_center_pixels(F_u, radius=radius)
+    recon_u = reconstruct_image(F_u_filtered)
+    axes[1, 2].imshow(recon_u, cmap="gray")
+    axes[1, 2].set_title(f"Reconstructed (center zeroed, r={radius})")
+    axes[1, 2].axis("off")
 
+    plt.suptitle("2D Fourier Transform: Threaded vs Unthreaded Bolt", fontsize=14)
     plt.tight_layout()
     fig.savefig(os.path.join(output_dir, "fft_comparison.png"), dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -99,7 +98,7 @@ def visualize_cosine_fft(output_dir):
         F, mag = compute_2d_fft(cosine_2d)
 
         axes[0, col].imshow(cosine_2d, cmap="RdBu_r")
-        axes[0, col].set_title(f"cos({a:.1f}x+{b:.1f}y)\nf={freq}, θ={direction}°")
+        axes[0, col].set_title(f"cos({a:.1f}x+{b:.1f}y)\nf={freq}, dir={direction}")
         axes[0, col].axis("off")
 
         axes[1, col].imshow(log_magnitude(mag), cmap="hot")
@@ -113,24 +112,29 @@ def visualize_cosine_fft(output_dir):
     print("  Saved cosine_fft_intuition.png")
 
 
-def predictor(image, radius=5, threshold_factor=1.5):
+def predictor(image, radius=5):
     F, mag = compute_2d_fft(image)
     F_filtered = zero_center_pixels(F, radius=radius)
     energy = np.mean(np.abs(F_filtered)**2)
-    return 1 if energy > threshold_factor else 0, energy
+    return energy
+
+
+def get_image_files(data_dir, cat):
+    cat_dir = os.path.join(data_dir, cat)
+    exts = (".png", ".jpg", ".jpeg", ".bmp")
+    return sorted([f for f in os.listdir(cat_dir) if f.lower().endswith(exts)])
 
 
 def visualize_predictor_results(data_dir, output_dir, radius=5):
-    categories = ["threaded", "unthreaded"]
+    categories = ["threaded", "threadless"]
     energies_threaded = []
     energies_unthreaded = []
 
     for cat in categories:
-        cat_dir = os.path.join(data_dir, cat)
-        files = sorted([f for f in os.listdir(cat_dir) if f.endswith(".png")])
+        files = get_image_files(data_dir, cat)
         for f in files:
-            img = load_image(os.path.join(cat_dir, f))
-            _, energy = predictor(img, radius=radius, threshold_factor=0)
+            img = load_image(os.path.join(data_dir, cat, f))
+            energy = predictor(img, radius=radius)
             if cat == "threaded":
                 energies_threaded.append(energy)
             else:
@@ -139,8 +143,8 @@ def visualize_predictor_results(data_dir, output_dir, radius=5):
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.bar(range(len(energies_threaded)), energies_threaded, alpha=0.7, label="Threaded", color="steelblue")
     ax.bar(range(len(energies_unthreaded)), energies_unthreaded, alpha=0.7, label="Unthreaded", color="salmon")
-    ax.axhline(y=np.mean(energies_threaded + energies_unthreaded), color="black", linestyle="--",
-               label="Mean Threshold")
+    threshold = (np.mean(energies_threaded) + np.mean(energies_unthreaded)) / 2
+    ax.axhline(y=threshold, color="black", linestyle="--", label=f"Threshold ({threshold:.1f})")
     ax.set_xlabel("Image Index")
     ax.set_ylabel("High-Frequency Energy")
     ax.set_title("FFT-Based Thread Detection: High-Frequency Energy Comparison")
@@ -150,7 +154,6 @@ def visualize_predictor_results(data_dir, output_dir, radius=5):
     plt.close(fig)
     print("  Saved fft_predictor_energy.png")
 
-    threshold = (np.mean(energies_threaded) + np.mean(energies_unthreaded)) / 2
     correct = 0
     total = len(energies_threaded) + len(energies_unthreaded)
     for e in energies_threaded:
@@ -164,12 +167,14 @@ def visualize_predictor_results(data_dir, output_dir, radius=5):
     print(f"\n  Predictor accuracy: {accuracy:.1f}% ({correct}/{total})")
     print(f"  Threaded energy range: [{min(energies_threaded):.2f}, {max(energies_threaded):.2f}]")
     print(f"  Unthreaded energy range: [{min(energies_unthreaded):.2f}, {max(energies_unthreaded):.2f}]")
+    return threshold
 
 
 def main():
     base_dir = os.path.dirname(__file__)
-    data_dir = os.path.join(base_dir, "data")
-    output_dir = os.path.join(os.path.dirname(base_dir), "figures")
+    project_dir = os.path.dirname(base_dir)
+    data_dir = os.path.join(project_dir, "dataset")
+    output_dir = os.path.join(project_dir, "figures")
 
     print("=== Part 1, Step 2: 2D Fourier Transform for Thread Detection ===\n")
 
@@ -177,18 +182,17 @@ def main():
     visualize_cosine_fft(output_dir)
 
     print("\nStep B: Comparing threaded vs unthreaded FFT spectra...")
-    threaded_dir = os.path.join(data_dir, "threaded")
-    unthreaded_dir = os.path.join(data_dir, "unthreaded")
-    t_files = sorted([f for f in os.listdir(threaded_dir) if f.endswith(".png")])
-    u_files = sorted([f for f in os.listdir(unthreaded_dir) if f.endswith(".png")])
-    t_imgs = [load_image(os.path.join(threaded_dir, f)) for f in t_files[:1]]
-    u_imgs = [load_image(os.path.join(unthreaded_dir, f)) for f in u_files[:1]]
-    visualize_fft_comparison(t_imgs, u_imgs, output_dir, radius=5)
+    t_files = get_image_files(data_dir, "threaded")
+    u_files = get_image_files(data_dir, "threadless")
+    t_img = load_image(os.path.join(data_dir, "threaded", t_files[0]))
+    u_img = load_image(os.path.join(data_dir, "threadless", u_files[0]))
+    visualize_fft_comparison(t_img, u_img, output_dir, radius=5)
 
     print("\nStep C: Running predictor on all images...")
-    visualize_predictor_results(data_dir, output_dir, radius=5)
+    threshold = visualize_predictor_results(data_dir, output_dir, radius=5)
 
-    print("\nDone! Figures saved to figures/")
+    print(f"\nDone! Figures saved to figures/")
+    return threshold
 
 
 if __name__ == "__main__":

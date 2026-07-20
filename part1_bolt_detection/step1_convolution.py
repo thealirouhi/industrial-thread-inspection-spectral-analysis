@@ -19,7 +19,7 @@ def create_cosine_filter(size, freq, direction_deg):
     return filt
 
 
-def load_image(path, downsample=2):
+def load_image(path, downsample=4):
     img = Image.open(path).convert("L")
     w, h = img.size
     img = img.resize((w // downsample, h // downsample))
@@ -64,17 +64,22 @@ def visualize_filter_and_convolution(image, conv_result, filt, title_suffix=""):
     return fig
 
 
-def visualize_sample_results(data_dir, output_dir, downsample=2):
+def get_image_files(data_dir, cat):
+    cat_dir = os.path.join(data_dir, cat)
+    exts = (".png", ".jpg", ".jpeg", ".bmp")
+    return sorted([f for f in os.listdir(cat_dir) if f.lower().endswith(exts)])
+
+
+def visualize_sample_results(data_dir, output_dir, downsample=4):
     os.makedirs(output_dir, exist_ok=True)
-    categories = ["threaded", "unthreaded"]
+    categories = ["threaded", "threadless"]
 
     for cat in categories:
-        cat_dir = os.path.join(data_dir, cat)
-        files = sorted([f for f in os.listdir(cat_dir) if f.endswith(".png")])
+        files = get_image_files(data_dir, cat)
         if not files:
             continue
 
-        img_path = os.path.join(cat_dir, files[0])
+        img_path = os.path.join(data_dir, cat, files[0])
         image = load_image(img_path, downsample=downsample)
 
         conv_result, results = detect_threads_convolution(image)
@@ -84,7 +89,7 @@ def visualize_sample_results(data_dir, output_dir, downsample=2):
 
         fig = visualize_filter_and_convolution(
             image, conv_result, filt,
-            title_suffix=f"\n(freq={best['freq']}, dir={best['direction']}°)"
+            title_suffix=f"\n(freq={best['freq']}, dir={best['direction']})"
         )
         fig.suptitle(f"{cat.capitalize()} Bolt - Convolution Detection", fontsize=14)
         fig.savefig(os.path.join(output_dir, f"convolution_{cat}.png"), dpi=150, bbox_inches="tight")
@@ -93,9 +98,10 @@ def visualize_sample_results(data_dir, output_dir, downsample=2):
 
     fig, axes = plt.subplots(1, 2, figsize=(10, 4))
     for idx, cat in enumerate(categories):
-        cat_dir = os.path.join(data_dir, cat)
-        files = sorted([f for f in os.listdir(cat_dir) if f.endswith(".png")])
-        img = load_image(os.path.join(cat_dir, files[0]), downsample=downsample)
+        files = get_image_files(data_dir, cat)
+        if not files:
+            continue
+        img = load_image(os.path.join(data_dir, cat, files[0]), downsample=downsample)
         axes[idx].imshow(img, cmap="gray")
         axes[idx].set_title(f"{cat.capitalize()} Bolt")
         axes[idx].axis("off")
@@ -108,12 +114,14 @@ def visualize_sample_results(data_dir, output_dir, downsample=2):
 
 def main():
     base_dir = os.path.dirname(__file__)
-    data_dir = os.path.join(base_dir, "data")
-    output_dir = os.path.join(os.path.dirname(base_dir), "figures")
+    project_dir = os.path.dirname(base_dir)
+    data_dir = os.path.join(project_dir, "dataset")
+    output_dir = os.path.join(project_dir, "figures")
 
     print("=== Part 1, Step 1: 2D Cosine Convolution for Thread Detection ===\n")
+    print(f"Using real dataset from: {data_dir}")
     print("Generating visualizations...")
-    visualize_sample_results(data_dir, output_dir, downsample=2)
+    visualize_sample_results(data_dir, output_dir, downsample=4)
 
     print("\nDone! Figures saved to figures/")
 
