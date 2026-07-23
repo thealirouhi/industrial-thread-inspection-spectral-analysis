@@ -1,19 +1,18 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import spectrogram, windows
+from scipy.io import wavfile
 import os
 
 
-def generate_demo_audio(fs=48000, duration=2.0):
-    t = np.linspace(0, duration, int(fs * duration), endpoint=False)
-    f1, f2, f3 = 200, 400, 600
-    segment_len = len(t) // 3
-    s1 = np.sin(2 * np.pi * f1 * t[:segment_len])
-    s2 = np.sin(2 * np.pi * f2 * t[segment_len:2*segment_len])
-    s3 = np.sin(2 * np.pi * f3 * t[2*segment_len:])
-    signal = np.concatenate([s1, s2, s3])
-    signal += 0.3 * np.sin(2 * np.pi * 1.5 * f1 * t)
-    return signal, t, fs
+def load_recorded_audio(data_dir):
+    wav_path = os.path.join(data_dir, "recorded_speech.wav")
+    fs, data = wavfile.read(wav_path)
+    signal = data.astype(np.float64) / np.max(np.abs(data))
+    duration = len(signal) / fs
+    print(f"  Loaded: {wav_path}")
+    print(f"  Sample rate: {fs} Hz, Duration: {duration:.2f}s, Samples: {len(signal)}")
+    return signal, fs
 
 
 def plot_spectrogram(signal, fs, nperseg, noverlap, window, ax, title=""):
@@ -27,8 +26,7 @@ def plot_spectrogram(signal, fs, nperseg, noverlap, window, ax, title=""):
     return f, t_spec, Sxx
 
 
-def study_window_type(output_dir):
-    signal, t, fs = generate_demo_audio()
+def study_window_type(signal, fs, output_dir):
     fig, axes = plt.subplots(2, 3, figsize=(16, 10))
     windows_to_test = ["hann", "hamming", "blackman", "boxcar", "flattop", ("tukey", 0.5)]
 
@@ -46,8 +44,7 @@ def study_window_type(output_dir):
     print("  Saved spectrogram_window_comparison.png")
 
 
-def study_nperseg(output_dir):
-    signal, t, fs = generate_demo_audio()
+def study_nperseg(signal, fs, output_dir):
     fig, axes = plt.subplots(1, 3, figsize=(16, 4))
     nperseg_values = [256, 1024, 4096]
 
@@ -63,8 +60,7 @@ def study_nperseg(output_dir):
     print("  Saved spectrogram_nperseg_comparison.png")
 
 
-def study_overlap(output_dir):
-    signal, t, fs = generate_demo_audio()
+def study_overlap(signal, fs, output_dir):
     fig, axes = plt.subplots(1, 3, figsize=(16, 4))
     overlap_values = [0, 256, 768]
     nperseg = 1024
@@ -81,15 +77,22 @@ def study_overlap(output_dir):
     print("  Saved spectrogram_overlap_comparison.png")
 
 
-def study_sampling_freq(output_dir):
+def study_sampling_freq(signal, fs, output_dir):
     fig, axes = plt.subplots(1, 3, figsize=(16, 4))
     fs_values = [8000, 48000, 96000]
 
-    for idx, fs in enumerate(fs_values):
-        signal, t, fs_actual = generate_demo_audio(fs=fs, duration=2.0)
-        plot_spectrogram(signal, fs, nperseg=1024, noverlap=768,
+    for idx, target_fs in enumerate(fs_values):
+        if target_fs == fs:
+            resampled = signal
+        elif target_fs < fs:
+            decimation = fs // target_fs
+            resampled = signal[::decimation]
+        else:
+            interpolation = target_fs // fs
+            resampled = np.repeat(signal, interpolation)
+        plot_spectrogram(resampled, target_fs, nperseg=1024, noverlap=768,
                          window="hann", ax=axes[idx],
-                         title=f"fs={fs} Hz\n(max freq={fs//2} Hz)")
+                         title=f"fs={target_fs} Hz\n(max freq={target_fs//2} Hz)")
 
     plt.suptitle("Effect of Sampling Frequency on Spectrogram", fontsize=14)
     plt.tight_layout()
@@ -100,22 +103,25 @@ def study_sampling_freq(output_dir):
 
 def main():
     project_dir = os.path.dirname(os.path.dirname(__file__))
+    data_dir = os.path.join(project_dir, "part2_audio_pitch", "data")
     output_dir = os.path.join(project_dir, "figures")
 
     print("=== Part 2, Step 1: Spectrogram Visualization & Parameter Study ===\n")
-    print("Using generated demo audio (chirp-like signal)\n")
+    print("Loading recorded audio...")
+    signal, fs = load_recorded_audio(data_dir)
+    print()
 
     print("A) Comparing window types...")
-    study_window_type(output_dir)
+    study_window_type(signal, fs, output_dir)
 
     print("B) Comparing window sizes (nperseg)...")
-    study_nperseg(output_dir)
+    study_nperseg(signal, fs, output_dir)
 
     print("C) Comparing overlap values...")
-    study_overlap(output_dir)
+    study_overlap(signal, fs, output_dir)
 
     print("D) Comparing sampling frequencies...")
-    study_sampling_freq(output_dir)
+    study_sampling_freq(signal, fs, output_dir)
 
     print("\nDone! All figures saved to figures/")
 

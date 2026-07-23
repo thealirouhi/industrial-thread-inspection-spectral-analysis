@@ -81,7 +81,7 @@ def main():
     threshold = compute_threshold(all_images, all_labels)
     print(f"Computed threshold from clean images: {threshold:.2f}\n")
 
-    n_values = [0, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 50.0, 100.0, 500.0, 1000.0]
+    n_values = [0, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 50.0, 100.0, 500.0, 1000.0, 5000.0, 10000.0, 100000.0]
     accuracies = []
 
     print("Testing accuracy at various noise levels...")

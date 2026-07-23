@@ -112,10 +112,12 @@ def visualize_cosine_fft(output_dir):
     print("  Saved cosine_fft_intuition.png")
 
 
-def predictor(image, radius=5):
+def predictor(image, radius=5, threshold=None):
     F, mag = compute_2d_fft(image)
     F_filtered = zero_center_pixels(F, radius=radius)
     energy = np.mean(np.abs(F_filtered)**2)
+    if threshold is not None:
+        return 1 if energy > threshold else 0
     return energy
 
 
@@ -190,6 +192,14 @@ def main():
 
     print("\nStep C: Running predictor on all images...")
     threshold = visualize_predictor_results(data_dir, output_dir, radius=5)
+
+    print(f"\nStep D: Demonstrating binary predictor (returns 1=threaded, 0=unthreaded)...")
+    for cat in ["threaded", "threadless"]:
+        files = get_image_files(data_dir, cat)
+        for f in files[:2]:
+            img = load_image(os.path.join(data_dir, cat, f))
+            result = predictor(img, radius=5, threshold=threshold)
+            print(f"  {cat}/{f} -> prediction: {result} ({'threaded' if result == 1 else 'unthreaded'})")
 
     print(f"\nDone! Figures saved to figures/")
     return threshold

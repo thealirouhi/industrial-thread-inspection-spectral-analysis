@@ -1,24 +1,18 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import spectrogram
+from scipy.io import wavfile
 import os
 
 
-def generate_chirp_signal(fs=48000, duration=3.0):
-    t = np.linspace(0, duration, int(fs * duration), endpoint=False)
-    f_start, f_end = 100, 500
-    freq = f_start + (f_end - f_start) * t / duration
-    signal = np.sin(2 * np.pi * np.cumsum(freq) / fs)
-    return signal, t, fs, freq
-
-
-def generate_harmonic_signal(fs=48000, duration=3.0):
-    t = np.linspace(0, duration, int(fs * duration), endpoint=False)
-    f0 = 150 + 50 * np.sin(2 * np.pi * 0.5 * t)
-    signal = (np.sin(2 * np.pi * f0 * t) +
-              0.5 * np.sin(2 * np.pi * 2 * f0 * t) +
-              0.3 * np.sin(2 * np.pi * 3 * f0 * t))
-    return signal, t, fs, f0
+def load_recorded_audio(data_dir):
+    wav_path = os.path.join(data_dir, "recorded_speech.wav")
+    fs, data = wavfile.read(wav_path)
+    signal = data.astype(np.float64) / np.max(np.abs(data))
+    duration = len(signal) / fs
+    print(f"  Loaded: {wav_path}")
+    print(f"  Sample rate: {fs} Hz, Duration: {duration:.2f}s, Samples: {len(signal)}")
+    return signal, fs
 
 
 def extract_fundamental_freq(signal, fs, nperseg=1024, noverlap=768):
@@ -37,40 +31,58 @@ def extract_fundamental_freq(signal, fs, nperseg=1024, noverlap=768):
 
 def main():
     project_dir = os.path.dirname(os.path.dirname(__file__))
+    data_dir = os.path.join(project_dir, "part2_audio_pitch", "data")
     output_dir = os.path.join(project_dir, "figures")
 
     print("=== Part 2, Step 3: Fundamental Frequency f0(t) Extraction ===\n")
+    print("Loading recorded audio...")
+    signal, fs = load_recorded_audio(data_dir)
+    print()
 
-    signals = [
-        ("Chirp Signal (100->500 Hz)", *generate_chirp_signal()),
-        ("Harmonic Signal (f0 varying)", *generate_harmonic_signal()),
-    ]
+    nperseg = 1024
+    noverlap = 768
+    t_spec, f0, f, t_spec_full, Sxx = extract_fundamental_freq(signal, fs, nperseg, noverlap)
 
-    fig, axes = plt.subplots(4, 1, figsize=(14, 16))
+    fig, axes = plt.subplots(2, 1, figsize=(14, 10))
 
-    for idx, (name, signal, t, fs, true_freq) in enumerate(signals):
-        t_spec, f0, f, t_spec_full, Sxx = extract_fundamental_freq(signal, fs)
+    ax_spec = axes[0]
+    ax_spec.pcolormesh(t_spec_full, f, 10 * np.log10(Sxx + 1e-10), shading="gouraud")
+    ax_spec.set_ylabel("Frequency (Hz)")
+    ax_spec.set_title("Recorded Speech - Spectrogram")
+    ax_spec.set_ylim([0, fs / 2])
 
-        ax_spec = axes[idx * 2]
-        ax_spec.pcolormesh(t_spec_full, f, 10 * np.log10(Sxx + 1e-10), shading="gouraud")
-        ax_spec.set_ylabel("Frequency (Hz)")
-        ax_spec.set_title(f"{name} - Spectrogram")
-        ax_spec.set_ylim([0, 800])
-
-        ax_f0 = axes[idx * 2 + 1]
-        ax_f0.plot(t_spec, f0, "b-", linewidth=2, label="Extracted f0(t)")
-        if len(true_freq) == len(t_spec):
-            ax_f0.plot(t_spec, true_freq[:len(t_spec)], "r--", linewidth=1.5, label="True f0(t)")
-        ax_f0.set_ylabel("Frequency (Hz)")
-        ax_f0.set_xlabel("Time (s)")
-        ax_f0.set_title(f"{name} - Fundamental Frequency f0(t)")
-        ax_f0.legend()
-        ax_f0.grid(True, alpha=0.3)
+    ax_f0 = axes[1]
+    ax_f0.plot(t_spec, f0, "b-", linewidth=2, label="Extracted f0(t)")
+    ax_f0.set_ylabel("Frequency (Hz)")
+    ax_f0.set_xlabel("Time (s)")
+    ax_f0.set_title("Recorded Speech - Fundamental Frequency f0(t)")
+    ax_f0.legend()
+    ax_f0.grid(True, alpha=0.3)
 
     plt.tight_layout()
     fig.savefig(os.path.join(output_dir, "fundamental_frequency_extraction.png"), dpi=150, bbox_inches="tight")
     plt.close(fig)
     print("  Saved fundamental_frequency_extraction.png")
+
+    print("\n--- Time-Frequency Resolution Trade-off Analysis ---\n")
+    freq_res = fs / nperseg
+    time_res = (nperseg - noverlap) / fs
+    max_freq = fs / 2
+    print(f"  Parameters used: nperseg={nperseg}, noverlap={noverlap}, fs={fs} Hz")
+    print(f"  Frequency resolution: delta_f = fs/nperseg = {fs}/{nperseg} = {freq_res:.1f} Hz")
+    print(f"  Time resolution: delta_t = (nperseg-noverlap)/fs = ({nperseg}-{noverlap})/{fs} = {time_res*1000:.1f} ms")
+    print(f"  Max observable frequency (Nyquist): fs/2 = {max_freq} Hz")
+    print()
+    print("  Trade-off: Increasing nperseg improves frequency resolution (smaller delta_f)")
+    print("  but degrades time resolution (larger delta_t). This is a fundamental")
+    print("  limitation similar to the Heisenberg uncertainty principle.")
+    print()
+    print("  Increasing overlap (noverlap) recovers some time resolution by computing")
+    print("  more STFT frames, but increases computation cost proportionally.")
+    print()
+    print("  For pitch detection, sufficient frequency resolution is needed to")
+    print("  distinguish the fundamental frequency f0 from its harmonics (2*f0, 3*f0, ...).")
+    print("  Too coarse frequency resolution may cause harmonics to be mistaken for f0.")
 
     print("\nDone! Figure saved to figures/")
 

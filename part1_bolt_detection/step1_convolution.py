@@ -120,6 +120,8 @@ def main():
 
     print("=== Part 1, Step 1: 2D Cosine Convolution for Thread Detection ===\n")
     print(f"Using real dataset from: {data_dir}")
+    print("Note: Images downsampled by 4x. This respects the Nyquist sampling theorem")
+    print("since bolt thread patterns are low-frequency relative to the original pixel resolution.\n")
     print("Generating visualizations...")
     visualize_sample_results(data_dir, output_dir, downsample=4)
 
