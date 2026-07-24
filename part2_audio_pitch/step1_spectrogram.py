@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.signal import spectrogram, windows
+from scipy.signal import spectrogram, windows, decimate, resample
 from scipy.io import wavfile
 import os
 
@@ -85,11 +85,11 @@ def study_sampling_freq(signal, fs, output_dir):
         if target_fs == fs:
             resampled = signal
         elif target_fs < fs:
-            decimation = fs // target_fs
-            resampled = signal[::decimation]
+            q = fs // target_fs
+            resampled = decimate(signal, q, ftype='iir')
         else:
-            interpolation = target_fs // fs
-            resampled = np.repeat(signal, interpolation)
+            num_samples = int(len(signal) * target_fs / fs)
+            resampled = resample(signal, num_samples)
         plot_spectrogram(resampled, target_fs, nperseg=1024, noverlap=768,
                          window="hann", ax=axes[idx],
                          title=f"fs={target_fs} Hz\n(max freq={target_fs//2} Hz)")

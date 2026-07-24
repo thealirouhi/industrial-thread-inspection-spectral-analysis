@@ -10,7 +10,6 @@ Signals and Systems final project implementing two core signal processing applic
 ```
 .
 ├── part1_bolt_detection/
-│   ├── data/                    # Threaded and unthreaded bolt images
 │   ├── step1_convolution.py     # 2D cosine convolution for thread detection
 │   ├── step2_fourier_transform.py # 2D FFT-based thread detection
 │   └── step3_noise_analysis.py  # Accuracy vs Gaussian noise level

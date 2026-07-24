@@ -26,7 +26,7 @@ def extract_fundamental_freq(signal, fs, nperseg=1024, noverlap=768):
         col_search = col[search_mask]
         peak_idx = np.argmax(col_search)
         f0_per_frame[i] = f_search[peak_idx]
-    return t_spec, f0_per_frame, f, t_spec, Sxx
+    return t_spec, f0_per_frame, f, Sxx
 
 
 def main():
@@ -41,12 +41,12 @@ def main():
 
     nperseg = 1024
     noverlap = 768
-    t_spec, f0, f, t_spec_full, Sxx = extract_fundamental_freq(signal, fs, nperseg, noverlap)
+    t_spec, f0, f, Sxx = extract_fundamental_freq(signal, fs, nperseg, noverlap)
 
     fig, axes = plt.subplots(2, 1, figsize=(14, 10))
 
     ax_spec = axes[0]
-    ax_spec.pcolormesh(t_spec_full, f, 10 * np.log10(Sxx + 1e-10), shading="gouraud")
+    ax_spec.pcolormesh(t_spec, f, 10 * np.log10(Sxx + 1e-10), shading="gouraud")
     ax_spec.set_ylabel("Frequency (Hz)")
     ax_spec.set_title("Recorded Speech - Spectrogram")
     ax_spec.set_ylim([0, fs / 2])

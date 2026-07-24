@@ -4,10 +4,9 @@ from PIL import Image
 import os
 
 
-def load_image(path, downsample=4):
+def load_image(path, target_size=256):
     img = Image.open(path).convert("L")
-    w, h = img.size
-    img = img.resize((w // downsample, h // downsample))
+    img = img.resize((target_size, target_size))
     return np.array(img, dtype=np.float64) / 255.0
 
 
@@ -68,6 +67,7 @@ def main():
     output_dir = os.path.join(project_dir, "figures")
 
     print("=== Part 1, Step 3: Noise Robustness Analysis ===\n")
+    print("  All images resized to 256x256 (fixed size for comparable FFT energy)\n")
 
     all_images = []
     all_labels = []
@@ -81,7 +81,7 @@ def main():
     threshold = compute_threshold(all_images, all_labels)
     print(f"Computed threshold from clean images: {threshold:.2f}\n")
 
-    n_values = [0, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 50.0, 100.0, 500.0, 1000.0, 5000.0, 10000.0, 100000.0]
+    n_values = [0, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 50.0, 100.0, 500.0, 1000.0, 5000.0, 10000.0, 100000.0, 1000000.0]
     accuracies = []
 
     print("Testing accuracy at various noise levels...")

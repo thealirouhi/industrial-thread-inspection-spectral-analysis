@@ -4,10 +4,9 @@ from PIL import Image
 import os
 
 
-def load_image(path, downsample=4):
+def load_image(path, target_size=256):
     img = Image.open(path).convert("L")
-    w, h = img.size
-    img = img.resize((w // downsample, h // downsample))
+    img = img.resize((target_size, target_size))
     return np.array(img, dtype=np.float64) / 255.0
 
 
@@ -144,7 +143,8 @@ def visualize_predictor_results(data_dir, output_dir, radius=5):
 
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.bar(range(len(energies_threaded)), energies_threaded, alpha=0.7, label="Threaded", color="steelblue")
-    ax.bar(range(len(energies_unthreaded)), energies_unthreaded, alpha=0.7, label="Unthreaded", color="salmon")
+    ax.bar(range(len(energies_threaded), len(energies_threaded) + len(energies_unthreaded)),
+           energies_unthreaded, alpha=0.7, label="Unthreaded", color="salmon")
     threshold = (np.mean(energies_threaded) + np.mean(energies_unthreaded)) / 2
     ax.axhline(y=threshold, color="black", linestyle="--", label=f"Threshold ({threshold:.1f})")
     ax.set_xlabel("Image Index")
@@ -179,6 +179,7 @@ def main():
     output_dir = os.path.join(project_dir, "figures")
 
     print("=== Part 1, Step 2: 2D Fourier Transform for Thread Detection ===\n")
+    print("Images resized to 256x256 for consistent FFT energy comparison.\n")
 
     print("Step A: Building intuition with cosine signals...")
     visualize_cosine_fft(output_dir)

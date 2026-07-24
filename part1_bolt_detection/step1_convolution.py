@@ -19,10 +19,9 @@ def create_cosine_filter(size, freq, direction_deg):
     return filt
 
 
-def load_image(path, downsample=4):
+def load_image(path, target_size=256):
     img = Image.open(path).convert("L")
-    w, h = img.size
-    img = img.resize((w // downsample, h // downsample))
+    img = img.resize((target_size, target_size))
     return np.array(img, dtype=np.float64) / 255.0
 
 
@@ -70,7 +69,7 @@ def get_image_files(data_dir, cat):
     return sorted([f for f in os.listdir(cat_dir) if f.lower().endswith(exts)])
 
 
-def visualize_sample_results(data_dir, output_dir, downsample=4):
+def visualize_sample_results(data_dir, output_dir, target_size=256):
     os.makedirs(output_dir, exist_ok=True)
     categories = ["threaded", "threadless"]
 
@@ -80,7 +79,7 @@ def visualize_sample_results(data_dir, output_dir, downsample=4):
             continue
 
         img_path = os.path.join(data_dir, cat, files[0])
-        image = load_image(img_path, downsample=downsample)
+        image = load_image(img_path, target_size=target_size)
 
         conv_result, results = detect_threads_convolution(image)
 
@@ -101,7 +100,7 @@ def visualize_sample_results(data_dir, output_dir, downsample=4):
         files = get_image_files(data_dir, cat)
         if not files:
             continue
-        img = load_image(os.path.join(data_dir, cat, files[0]), downsample=downsample)
+        img = load_image(os.path.join(data_dir, cat, files[0]), target_size=target_size)
         axes[idx].imshow(img, cmap="gray")
         axes[idx].set_title(f"{cat.capitalize()} Bolt")
         axes[idx].axis("off")
@@ -120,10 +119,11 @@ def main():
 
     print("=== Part 1, Step 1: 2D Cosine Convolution for Thread Detection ===\n")
     print(f"Using real dataset from: {data_dir}")
-    print("Note: Images downsampled by 4x. This respects the Nyquist sampling theorem")
-    print("since bolt thread patterns are low-frequency relative to the original pixel resolution.\n")
+    print("Note: All images resized to a fixed 256x256 pixels. This normalises spatial")
+    print("frequencies across varying input resolutions (512x512 to 3024x4032), ensuring")
+    print("that cosine filter responses are comparable between images.\n")
     print("Generating visualizations...")
-    visualize_sample_results(data_dir, output_dir, downsample=4)
+    visualize_sample_results(data_dir, output_dir, target_size=256)
 
     print("\nDone! Figures saved to figures/")
 
